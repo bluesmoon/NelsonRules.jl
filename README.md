@@ -9,4 +9,6 @@ The rules are based on the mean value and the standard deviation of the samples.
 
 More information on the Nelson Rules are available at https://en.wikipedia.org/wiki/Nelson_rules
 
-
+[![GH Build](https://github.com/bluesmoon/NelsonRules.jl/workflows/CI/badge.svg)](https://github.com/bluesmoon/NelsonRules.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage Status](https://coveralls.io/repos/github/bluesmoon/NelsonRules.jl/badge.svg?branch=main)](https://coveralls.io/github/bluesmoon/NelsonRules.jl?branch=main)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://bluesmoon.github.io/NelsonRules.jl/)
