@@ -17,7 +17,7 @@ All rule methods in this module accept the same type of argument and return the 
 : A timeseries vector to check for rule violation. Each entry is for a single unit of time.
 
 ### Returns
-`Zip{Tuple{Intp[],Int[]}}`: An iterator of indices and sequence length of sequences that violate the particular Nelson Rule.
+`Zip{Tuple{Integer[],Integer[]}}`: An iterator of indices and sequence length of sequences that violate the particular Nelson Rule.
 
 See the individual method documentation for rule description, examples and nuances.
 
@@ -56,7 +56,7 @@ function rule1(series::AbstractVector{<:Real})
     upper3Sd = mu + 3 * sd
     lower3Sd = mu - 3 * sd
 
-    outsideRange = findall(.!(lower3Sd .<= series .<= upper3Sd))
+    outsideRange = findall(s -> s < lower3Sd || s > upper3Sd, series)
 
     return zip(outsideRange, fill(1,length(outsideRange)))
 end
@@ -79,15 +79,15 @@ zip([41], [9])
 function rule2(series::AbstractVector{<:Real})
     # Need array of at least 9 items for this test
     if length(series) < 9
-        return zip(Int[], Int[])
+        return zip(Unsigned[], Int16[])
     end
 
     mu = mean(series)
 
-    sideOfMean = sign.(series .- mu)
+    sideOfMean = Int8[sign(s - mu) for s in series]
 
-    sequencesOf9    = Int[]
-    sequenceLengths = Int[]
+    sequencesOf9    = Unsigned[]
+    sequenceLengths = Int16[]
 
     i = 1
     n = length(sideOfMean)
@@ -120,13 +120,13 @@ zip([3, 18], [6, 8])
 function rule3(series::AbstractVector{<:Real})
     # Need array of at least 6 items for this test
     if length(series) < 6
-        return zip(Int[], Int[])
+        return zip(Unsigned[], Int16[])
     end
 
-    deltaDirection = sign.(series[2:end] - series[1:end-1])
+    deltaDirection = Int8[sign(series[i+1] - series[i]) for i in 1:length(series)-1]
 
-    sequencesOf6    = Int[]
-    sequenceLengths = Int[]
+    sequencesOf6    = Unsigned[]
+    sequenceLengths = Int16[]
 
     i = 1
     n = length(deltaDirection)
@@ -159,14 +159,14 @@ zip([1], [14])
 """
 function rule4(series::AbstractVector{<:Real})
     if length(series) < 14
-        return zip(Int[], Int[])
+        return zip(Unsigned[], Int16[])
     end
 
     # We have 3 possibilities
     # x(i+1) == x(i) ->  0
     # x(i+1) >  x(i) -> +1
     # x(i+1) <  x(i) -> -1
-    deltaDirection = sign.(series[2:end] - series[1:end-1])
+    deltaDirection = Int8[sign(series[i+1] - series[i]) for i in 1:length(series)-1]
 
     # We have 9 possibilities. The first 3 are when consecutive deltas are the same:
     # δ(i+1) == δ(i) ->  0
@@ -177,18 +177,16 @@ function rule4(series::AbstractVector{<:Real})
     # δ(i+1) == -1 && δ(i) ==  0 -> -1
     # δ(i+1) == -1 && δ(i) == +1 -> -2
     # We only care about the case where value is ±2, so we take the absolute delta
-    deltaSign = abs.(deltaDirection[2:end] - deltaDirection[1:end-1])
-
-    altDirection = findall(deltaSign .== 2)
+    altDirection = findall(i -> abs(deltaDirection[i+1] - deltaDirection[i]) == 2, 1:length(deltaDirection)-1)
 
     # Now find the delta between indices
-    altDirectionIdxDelta = altDirection[2:end] - altDirection[1:end-1]
+    altDirectionIdxDelta = @view(altDirection[2:end]) - @view(altDirection[1:end-1])
 
-    sequencesOf14   = Int[]
-    sequenceLengths = Int[]
+    sequencesOf14   = Unsigned[]
+    sequenceLengths = Int16[]
 
     # Finally find the longest sequence where the index deltas are 1 and if that is >= 14, we've found a rule breaker
-    n = length(altDirection)
+    n = length(altDirectionIdxDelta)
     i = 1
     while i <= n
         nextIdxChange = something(findnext(!=(1), altDirectionIdxDelta, i+1), n+1)
@@ -226,11 +224,11 @@ function rule5(series::AbstractVector{<:Real})
     upper2Sd = mu + 2 * sd
     lower2Sd = mu - 2 * sd
 
-    elementDirection = Vector{Int}(series .> upper2Sd) - Vector{Int}(series .< lower2Sd)
+    elementDirection = Int8[s > upper2Sd ? 1 : s < lower2Sd ? -1 : 0 for s in series]
 
-    sequenceOf3 = Int[abs(sum(elementDirection[i:i+2])) for i in 1:length(elementDirection) - 2]
+    sequenceOf3 = [abs(sum(@view(elementDirection[i:i+2]))) for i in 1:length(elementDirection) - 2]
 
-    startOfSequenceOf2 = findall(sequenceOf3 .>= 2)
+    startOfSequenceOf2 = findall(>=(2), sequenceOf3)
 
     return zip(startOfSequenceOf2, sequenceOf3[startOfSequenceOf2])
 end
@@ -258,11 +256,11 @@ function rule6(series::AbstractVector{<:Real})
     upper1Sd = mu + sd
     lower1Sd = mu - sd
 
-    elementDirection = Vector{Int}(series .> upper1Sd) - Vector{Int}(series .< lower1Sd)
+    elementDirection = Int8[s > upper1Sd ? 1 : s < lower1Sd ? -1 : 0 for s in series]
 
-    sequenceOf5 = Int[abs(sum(elementDirection[i:i+4])) for i in 1:length(elementDirection) - 4]
+    sequenceOf5 = [abs(sum(@view(elementDirection[i:i+4]))) for i in 1:length(elementDirection) - 4]
 
-    startOfSequenceOf4 = findall(sequenceOf5 .>= 4)
+    startOfSequenceOf4 = findall(>=(4), sequenceOf5)
 
     return zip(startOfSequenceOf4, sequenceOf5[startOfSequenceOf4])
 end
@@ -294,9 +292,9 @@ function rule7(series::AbstractVector{<:Real})
 
     within1Sd = lower1Sd .<= series .<= upper1Sd
 
-    sequenceOf15 = [sum(within1Sd[i:i+14]) for i in 1:length(within1Sd) - 14]
+    sequenceOf15 = [sum(@view(within1Sd[i:i+14])) for i in 1:length(within1Sd) - 14]
 
-    startOfSequenceOf15 = findall(sequenceOf15 .== 15)
+    startOfSequenceOf15 = findall(==(15), sequenceOf15)
 
     return zip(startOfSequenceOf15, sequenceOf15[startOfSequenceOf15])
 end
@@ -328,9 +326,9 @@ function rule8(series::AbstractVector{<:Real})
 
     outside1Sd = .!(lower1Sd .<= series .<= upper1Sd)
 
-    sequenceOf8 = [sum(outside1Sd[i:i+7]) for i in 1:length(outside1Sd) - 7]
+    sequenceOf8 = [sum(@view(outside1Sd[i:i+7])) for i in 1:length(outside1Sd) - 7]
 
-    startOfSequenceOf8 = findall(sequenceOf8 .== 8)
+    startOfSequenceOf8 = findall(==(8), sequenceOf8)
 
     return zip(startOfSequenceOf8, sequenceOf8[startOfSequenceOf8])
 end
